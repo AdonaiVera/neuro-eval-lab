@@ -3,3 +3,4 @@ data/
 
 # Ignore files
 .DS_Store
+methods/__pycache__/preprocess.cpython-39.pyc

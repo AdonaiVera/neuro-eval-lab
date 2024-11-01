@@ -51,6 +51,65 @@ def preprocess_mnist_data():
 
     print("Preprocessing completed. Data saved in the 'data' folder.")
 
+
+def prepare_data_for_perceptrons(image_file, label_file, num_perceptrons=10, sampling_strategy='oversample'):
+    # Load images and labels
+    images = np.loadtxt(image_file)
+    labels = np.loadtxt(label_file)
+
+    # Initialize dictionaries to hold training and test sets for each perceptron
+    training_data = {}
+    test_data = {}
+
+    for digit in range(num_perceptrons):
+        # Create binary labels for this perceptron
+        binary_labels = (labels == digit).astype(int)
+        
+        # Split into training and test sets
+        digit_indices = np.where(labels == digit)[0]
+        other_indices = np.where(labels != digit)[0]
+        
+        # Select 400 samples of the target digit and 400 samples of other digits for training
+        train_digit_indices = np.random.choice(digit_indices, 400, replace=False)
+        train_other_indices = np.random.choice(other_indices, 3600, replace=False)
+        train_indices = np.concatenate((train_digit_indices, train_other_indices))
+        random.shuffle(train_indices)
+
+        # Apply oversampling or undersampling strategy
+        if sampling_strategy == 'oversample':
+            # Oversample the minority class (1) to balance with the majority class (0)
+            minority_indices = train_digit_indices
+            majority_indices = train_other_indices
+            oversampled_minority_indices = np.random.choice(minority_indices, len(majority_indices), replace=True)
+            train_indices = np.concatenate((oversampled_minority_indices, majority_indices))
+            random.shuffle(train_indices)
+        
+        elif sampling_strategy == 'undersample':
+            # Undersample the majority class (0) to balance with the minority class (1)
+            minority_indices = train_digit_indices
+            majority_indices = np.random.choice(train_other_indices, len(minority_indices), replace=False)
+            train_indices = np.concatenate((minority_indices, majority_indices))
+            random.shuffle(train_indices)
+
+        # Training set for this perceptron
+        training_data[digit] = {
+            "images": images[train_indices],
+            "labels": binary_labels[train_indices]
+        }
+
+        # Test set for this perceptron (100 samples of target digit and 900 of other digits)
+        test_digit_indices = np.setdiff1d(digit_indices, train_digit_indices)
+        test_other_indices = np.setdiff1d(other_indices, train_other_indices)
+        test_indices = np.concatenate((test_digit_indices, test_other_indices))
+
+        test_data[digit] = {
+            "images": images[test_indices],
+            "labels": binary_labels[test_indices]
+        }
+
+    return training_data, test_data
+
+
 # Run the preprocessing function
 if __name__ == "__main__":
     preprocess_mnist_data()
