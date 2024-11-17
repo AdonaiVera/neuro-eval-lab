@@ -52,6 +52,71 @@ def preprocess_mnist_data():
     print("Preprocessing completed. Data saved in the 'data' folder.")
 
 
+
+def prepare_data_for_multiclass(image_file, label_file, num_classes=10, train_samples_per_class=400, test_samples_per_class=100):
+    """
+    Prepare balanced datasets for multi-class classification.
+
+    Parameters:
+    - image_file (str): Path to the file containing image data.
+    - label_file (str): Path to the file containing label data.
+    - num_classes (int): Number of classes (digits 0-9 by default).
+    - train_samples_per_class (int): Number of training samples per class.
+    - test_samples_per_class (int): Number of test samples per class.
+
+    Returns:
+    - training_data (dict): Training images and labels.
+    - test_data (dict): Test images and labels.
+    """
+    # Load images and labels
+    images = np.loadtxt(image_file)
+    labels = np.loadtxt(label_file)
+
+    # Initialize lists for training and test sets
+    train_images, train_labels = [], []
+    test_images, test_labels = [], []
+
+    for digit in range(num_classes):
+        # Get indices of all samples for the current digit
+        digit_indices = np.where(labels == digit)[0]
+
+        # Shuffle the indices for randomness
+        np.random.shuffle(digit_indices)
+
+        # Split into training and test sets
+        train_indices = digit_indices[:train_samples_per_class]
+        test_indices = digit_indices[train_samples_per_class:train_samples_per_class + test_samples_per_class]
+
+        # Append to training and test sets
+        train_images.append(images[train_indices])
+        train_labels.append(labels[train_indices])
+        test_images.append(images[test_indices])
+        test_labels.append(labels[test_indices])
+
+    # Combine all classes into final datasets
+    train_images = np.vstack(train_images)
+    train_labels = np.hstack(train_labels)
+    test_images = np.vstack(test_images)
+    test_labels = np.hstack(test_labels)
+
+    # Shuffle the training and test sets
+    train_indices = np.arange(len(train_labels))
+    test_indices = np.arange(len(test_labels))
+    np.random.shuffle(train_indices)
+    np.random.shuffle(test_indices)
+
+    train_images = train_images[train_indices]
+    train_labels = train_labels[train_indices]
+    test_images = test_images[test_indices]
+    test_labels = test_labels[test_indices]
+
+    # Return the prepared datasets
+    training_data = {"images": train_images, "labels": train_labels}
+    test_data = {"images": test_images, "labels": test_labels}
+
+    return training_data, test_data
+
+
 def prepare_data_for_perceptrons(image_file, label_file, num_perceptrons=10, sampling_strategy='oversample'):
     # Load images and labels
     images = np.loadtxt(image_file)

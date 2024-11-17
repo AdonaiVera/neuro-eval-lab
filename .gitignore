@@ -4,3 +4,5 @@ data/
 # Ignore files
 .DS_Store
 methods/__pycache__/preprocess.cpython-39.pyc
+models/__pycache__/FeedForwardNN.cpython-39.pyc
+methods/__pycache__/evaluator_metrics.cpython-39.pyc

@@ -17,6 +17,34 @@ def calculate_error_fraction(model, images, labels):
     print(f"Error fraction: {error_fraction:.4f}, Accuracy: {accuracy:.4f}")
     return error_fraction
 
+def calculate_error_fraction_multiple_class(model, images, labels):
+    """
+    Calculate the error fraction for multi-class predictions.
+
+    Parameters:
+    model (object): The trained model for prediction.
+    images (ndarray): Input images.
+    labels (ndarray): True labels (class indices).
+
+    Returns:
+    float: Error fraction.
+    """
+    # Predict class indices for all samples
+    predicted_labels=model.predict(images)
+
+    # Calculate the number of incorrect predictions
+    incorrect_predictions = np.sum(predicted_labels != labels)
+
+    # Calculate error fraction
+    error_fraction = incorrect_predictions / len(labels)
+
+    # Optionally calculate accuracy for additional output
+    accuracy = 1 - error_fraction
+    print(f"Error fraction: {error_fraction:.4f}, Accuracy: {accuracy:.4f}")
+    
+    return error_fraction
+
+
 def calculate_balanced_accuracy_error(model, images, labels):
     # Initialize counters for each class
     true_positives = false_positives = true_negatives = false_negatives = 0
@@ -46,6 +74,47 @@ def calculate_balanced_accuracy_error(model, images, labels):
 
     print(f"Balanced Accuracy: {balanced_accuracy:.4f}, Balanced Accuracy Error: {balanced_accuracy_error:.4f}")
     return balanced_accuracy_error
+
+def calculate_metrics_multi_class(model, images, labels, num_classes=10):
+    """
+    Calculate precision, recall, and F1 score for multi-class data.
+
+    Parameters:
+    model (object): The trained model for prediction.
+    images (ndarray): Input images.
+    labels (ndarray): True labels (one-hot encoded or class indices).
+    num_classes (int): Number of classes.
+
+    Returns:
+    dict: Dictionary containing precision, recall, and F1 score for each class.
+    """
+    # Predict class indices for all samples
+    predictions = np.argmax(model.predict(images), axis=1)
+    true_labels = np.argmax(labels, axis=1) if labels.ndim > 1 else labels
+
+    metrics = {"precision": [], "recall": [], "f1_score": []}
+
+    for cls in range(num_classes):
+        # True positives, false positives, and false negatives for each class
+        tp = np.sum((predictions == cls) & (true_labels == cls))
+        fp = np.sum((predictions == cls) & (true_labels != cls))
+        fn = np.sum((predictions != cls) & (true_labels == cls))
+
+        # Precision, Recall, and F1 Score
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        f1_score = (2 * precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
+
+        metrics["precision"].append(precision)
+        metrics["recall"].append(recall)
+        metrics["f1_score"].append(f1_score)
+
+    # Print overall metrics for the dataset
+    print(f"Precision (per class): {metrics['precision']}")
+    print(f"Recall (per class): {metrics['recall']}")
+    print(f"F1 Score (per class): {metrics['f1_score']}")
+
+    return metrics
 
 def calculate_metrics(model, images, labels):
     true_positives = false_positives = true_negatives = false_negatives = 0

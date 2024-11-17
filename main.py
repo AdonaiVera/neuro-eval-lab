@@ -1,9 +1,11 @@
 import numpy as np
 from models.perceptron import Perceptron
-from methods.preprocess import prepare_data_for_perceptrons
+from models.FeedForwardNN import FeedForwardNN
+from methods.preprocess import prepare_data_for_perceptrons, prepare_data_for_multiclass
 from methods.evaluator_metrics import (
     calculate_error_fraction,
     calculate_metrics,
+    calculate_error_fraction_multiple_class,
     evaluate_bias_range,
     plot_metrics_comparison,
     plot_metrics_vs_bias,
@@ -142,8 +144,8 @@ def main_second_problem():
 
     # Prepare data for all 10 perceptrons
     training_data, test_data = prepare_data_for_perceptrons(
-        image_file='data/MNISTnumImages5000_balanced.txt', 
-        label_file='data/MNISTnumLabels5000_balanced.txt', 
+        image_file=train_image_file, 
+        label_file=train_label_file, 
         sampling_strategy='undersample'  # or 'undersample'
     )
 
@@ -223,11 +225,76 @@ def main_second_problem():
     print(training_errors)
     plot_all_perceptrons_training_error(training_errors)
 
+def main_feed_forward_nn():
+    # File paths (assumed to be in the 'data' folder)
+    train_image_file = 'data/MNISTnumImages5000_balanced.txt'
+    train_label_file = 'data/MNISTnumLabels5000_balanced.txt'
+
+    # Prepare balanced training and test datasets
+    training_data, test_data = prepare_data_for_multiclass(
+        image_file=train_image_file,
+        label_file=train_label_file,
+        train_samples_per_class=400,
+        test_samples_per_class=100
+    )
+
+    # Extract training and test data
+    train_images = training_data["images"]
+    train_labels = training_data["labels"]
+    test_images = test_data["images"]
+    test_labels = test_data["labels"]
+
+    # Shuffle training data to avoid class order effects
+    train_indices = np.arange(train_images.shape[0])
+    np.random.shuffle(train_indices)
+    train_images = train_images[train_indices]
+    train_labels = train_labels[train_indices]
+
+    # Normalize images
+    train_images = train_images / 255.0
+    test_images = test_images / 255.0
+
+    # Initialize feed-forward neural network
+    # Input layer: 784, Hidden layer: 100, Output layer: 10
+    layer_sizes = [784, 200, 10]  
+    learning_rate = 0.001
+    momentum = 0.9
+    epochs = 100
+    batch_size = 64
+
+    print("\nInitializing FeedForwardNN...")
+    network = FeedForwardNN(layer_sizes, learning_rate, momentum)
+
+    # Calculate initial error fraction
+    print("\nEvaluating before training...")
+    initial_train_error = calculate_error_fraction_multiple_class(network, train_images, train_labels)
+    initial_test_error = calculate_error_fraction_multiple_class(network, test_images, test_labels)
+    print(f"Initial Training Error: {initial_train_error:.4f}")
+    print(f"Initial Test Error: {initial_test_error:.4f}")
+
+    print("\nTraining FeedForwardNN...")
+
+    # Convert labels to integers
+    train_labels = train_labels.astype(int)
+    test_labels = test_labels.astype(int)
+
+    print(train_images)
+    print(train_labels)
+
+    network.train(train_images, train_labels, epochs=epochs, batch_size=batch_size)
+
+    final_train_error = calculate_error_fraction_multiple_class(network, train_images, train_labels)
+    final_test_error = calculate_error_fraction_multiple_class(network, test_images, test_labels)
+    print(f"Initial Training Error: {final_train_error:.4f}")
+    print(f"Initial Test Error: {final_test_error:.4f}")
+
 
 if __name__ == "__main__":
     # Run the main function for the first problem
     #main_first_problem()
 
     # Run the main function for the second problem
-    main_second_problem()
+    #main_second_problem()
 
+    # Run the main function for the feed-forward neural network
+    main_feed_forward_nn()
