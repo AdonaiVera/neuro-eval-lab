@@ -22,6 +22,9 @@ class FeedForwardNN:
         self.velocity_w = []
         self.velocity_b = []
 
+        self.error_history_train = []
+        self.error_history_test = []
+
         # Xavier initialization for weights
         for i in range(len(layer_sizes) - 1):
             limit = np.sqrt(6 / (layer_sizes[i] + layer_sizes[i + 1]))
@@ -57,6 +60,35 @@ class FeedForwardNN:
             activations.append(A)
         return activations
 
+    def inference(self, X, y_true):
+        """
+        Perform inference on a dataset and evaluate its performance.
+
+        Parameters:
+        X (ndarray): Input data.
+        y_true (ndarray): True labels.
+
+        Returns:
+        tuple: A tuple containing:
+            - outputs (ndarray): The raw outputs (softmax probabilities) from the final layer.
+            - predictions (ndarray): Predicted class labels.
+            - confusion_matrix (ndarray): The confusion matrix.
+            - accuracy (float): Overall accuracy.
+        """
+        outputs = self.forward(X)[-1]
+        predictions = np.argmax(outputs, axis=1)
+
+        # Calculate confusion matrix
+        num_classes = self.layer_sizes[-1]
+        confusion_matrix = np.zeros((num_classes, num_classes), dtype=int)
+        for true, pred in zip(y_true, predictions):
+            confusion_matrix[int(true), int(pred)] += 1
+
+        # Calculate accuracy
+        accuracy = np.trace(confusion_matrix) / np.sum(confusion_matrix)
+
+        return outputs, predictions, confusion_matrix, accuracy
+    
     def backward(self, activations, y_true):
         """
         Perform backward propagation and update weights and biases.
@@ -89,7 +121,25 @@ class FeedForwardNN:
             self.weights[i] += self.velocity_w[i]
             self.biases[i] += self.velocity_b[i]
 
-    def train(self, X, y, epochs, batch_size, validation_data=None, early_stopping=False, patience=5):
+
+    def calculate_error_fraction(self, X, y):
+        """
+        Calculate error fraction for a dataset.
+
+        Parameters:
+        X (ndarray): Input data.
+        y (ndarray): True labels.
+
+        Returns:
+        float: Error fraction.
+        """
+        predictions = self.predict(X)
+        incorrect_predictions = np.sum(predictions != y)
+        error_fraction = incorrect_predictions / len(y)
+        return error_fraction
+    
+
+    def train(self, X, y, epochs, batch_size, early_stopping=False, patience=5, X_test=None, y_test=None):
         """
         Train the network using mini-batch gradient descent.
 
@@ -120,22 +170,24 @@ class FeedForwardNN:
             # Monitor loss and accuracy
             if epoch % 10 == 0 or epoch == epochs - 1:
                 loss = self.compute_loss(self.forward(X)[-1], y)
-                print(f"Epoch {epoch}, Loss: {loss:.4f}")
 
-            if validation_data:
-                X_val, y_val = validation_data
-                val_loss = self.compute_loss(self.forward(X_val)[-1], y_val)
-                print(f"Epoch {epoch}, Validation Loss: {val_loss:.4f}")
+                self.error_history_train.append(self.calculate_error_fraction(X, y))
+                #print(f"Epoch {epoch}, Loss: {loss:.4f}, and Error Fraction: {self.error_history_train[-1]:.4f}")
 
-                if early_stopping:
-                    if val_loss < best_loss:
-                        best_loss = val_loss
-                        wait = 0
-                    else:
-                        wait += 1
-                        if wait > patience:
-                            print("Early stopping triggered.")
-                            break
+                if X_test is not None and y_test is not None:                
+                    val_loss = self.compute_loss(self.forward(X_test)[-1], y_test)
+                    self.error_history_test.append(self.calculate_error_fraction(X_test, y_test))
+                    #print(f"Epoch {epoch}, Validation Loss: {val_loss:.4f}, and Error Fraction: {self.error_history_test[-1]:.4f}")
+                    
+                    if early_stopping:
+                        if val_loss < best_loss:
+                            best_loss = val_loss
+                            wait = 0
+                        else:
+                            wait += 1
+                            if wait > patience:
+                                print("Early stopping triggered.")
+                                break
 
     def predict(self, X):
         """
@@ -162,7 +214,7 @@ class FeedForwardNN:
     def softmax(Z):
         exp_Z = np.exp(Z - np.max(Z, axis=1, keepdims=True))
         return exp_Z / np.sum(exp_Z, axis=1, keepdims=True)
-
+    
     def compute_loss(self, y_pred, y_true):
         """
         Compute the categorical cross-entropy loss.
