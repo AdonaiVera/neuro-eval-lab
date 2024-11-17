@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd 
+import seaborn as sns
 
 def calculate_error_fraction(model, images, labels):
     incorrect_predictions = 0
@@ -16,6 +17,26 @@ def calculate_error_fraction(model, images, labels):
     accuracy = 1 - error_fraction
     print(f"Error fraction: {error_fraction:.4f}, Accuracy: {accuracy:.4f}")
     return error_fraction
+
+def plot_mre_history(history_train, history_test):
+    """
+    Plot the MRE history for training and test sets over epochs.
+
+    Parameters:
+    history_train (list): Training MRE history.
+    history_test (list): Test MRE history.
+    """
+    epochs = range(0, len(history_train) * 10, 10)  # Every 10th epoch
+    plt.figure(figsize=(10, 6))
+    plt.plot(epochs, history_train, label='Training MRE')
+    plt.plot(epochs, history_test, label='Test MRE')
+    plt.xlabel('Epochs')
+    plt.ylabel('MRE')
+    plt.title('Mean Reconstruction Error (MRE) Over Epochs')
+    plt.legend()
+    plt.grid()
+    plt.show()
+
 
 def calculate_error_fraction_multiple_class(model, images, labels):
     """
@@ -143,6 +164,87 @@ def calculate_metrics(model, images, labels):
     print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, F1 Score: {f1_score:.4f}")
 
     return precision, recall, f1_score
+
+
+def plot_confusion_matrix(conf_matrix, class_labels, title="Confusion Matrix"):
+    """
+    Visualize the confusion matrix using seaborn.
+
+    Parameters:
+    conf_matrix (ndarray): Confusion matrix (10x10 for digit classification).
+    class_labels (list): List of class labels (e.g., [0, 1, 2, ..., 9]).
+    title (str): Title of the plot.
+    """
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=class_labels, yticklabels=class_labels)
+    plt.xlabel("Predicted Label")
+    plt.ylabel("True Label")
+    plt.title(title)
+    plt.show()
+
+
+def plot_inference(images_input, images_output, sample_idx=10):
+    '''
+    Plot the original and reconstructed images for a sample.
+    '''
+    
+    # Plot original and reconstructed images for a sample
+    plt.figure(figsize=(8, 4))
+    plt.subplot(1, 2, 1)
+    plt.title("Original Image")
+    plt.imshow(images_input[sample_idx].reshape(28, 28), cmap="gray")
+
+    plt.subplot(1, 2, 2)
+    plt.title("Reconstructed Image")
+    plt.imshow(images_output[sample_idx].reshape(28, 28), cmap="gray")
+    plt.show()
+
+
+def plot_error_fraction_encoders(error_history_train, error_history_test, title="Error Fraction Over Epochs", xlabel="Epochs", ylabel="Error Fraction"):
+    """
+    Plot the Mean Reconstruction Error (MRE) over epochs for training and test sets.
+
+    Parameters:
+    error_history_train (list): List of training MRE values over epochs.
+    error_history_test (list): List of test MRE values over epochs.
+    title (str): Title of the plot.
+    xlabel (str): Label for the x-axis.
+    ylabel (str): Label for the y-axis.
+    """
+    epochs = list(range(0, len(error_history_train) * 10, 10))  # Assuming MRE is recorded every 10 epochs
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(epochs, error_history_train, label="Training Set MRE", marker="o")
+    plt.plot(epochs, error_history_test, label="Test Set MRE", marker="s")
+
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.grid(True, linestyle='--', alpha=0.6)
+    plt.legend(loc="upper right")
+    plt.tight_layout()
+    plt.show()
+
+def plot_error_fraction(network):
+    """
+    Plot the time series of error fractions for training and test sets from the network.
+
+    Parameters:
+    network (FeedForwardNN): The trained FeedForwardNN instance with recorded errors.
+    """
+    epochs = len(network.error_history_train)
+    x_ticks = list(range(0, epochs * 10, 10))  # Assuming error history is recorded every 10 epochs
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(x_ticks, network.error_history_train, label="Training Error Fraction", marker='o')
+    plt.plot(x_ticks, network.error_history_test, label="Test Error Fraction", marker='o')
+    plt.xlabel("Epoch")
+    plt.ylabel("Error Fraction")
+    plt.title("Error Fraction Over Training Period")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
 
 def plot_all_perceptrons_training_error(training_errors):
     """

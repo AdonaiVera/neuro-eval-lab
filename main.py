@@ -1,6 +1,7 @@
 import numpy as np
 from models.perceptron import Perceptron
 from models.FeedForwardNN import FeedForwardNN
+from models.autoencoder import AutoencoderNN
 from methods.preprocess import prepare_data_for_perceptrons, prepare_data_for_multiclass
 from methods.evaluator_metrics import (
     calculate_error_fraction,
@@ -15,8 +16,13 @@ from methods.evaluator_metrics import (
     plot_classification_counts,
     calculate_balanced_accuracy_error,
     plot_metrics_comparison_for_all_digits,
-    plot_all_perceptrons_training_error
+    plot_all_perceptrons_training_error,
+    plot_error_fraction,
+    plot_confusion_matrix,
+    plot_error_fraction_encoders,
+    plot_inference
 )
+
 
 def main_first_problem():
     # Define paths for data and weights
@@ -256,10 +262,10 @@ def main_feed_forward_nn():
 
     # Initialize feed-forward neural network
     # Input layer: 784, Hidden layer: 100, Output layer: 10
-    layer_sizes = [784, 200, 10]  
+    layer_sizes = [784, 100, 10]  
     learning_rate = 0.001
     momentum = 0.9
-    epochs = 100
+    epochs = 200
     batch_size = 64
 
     print("\nInitializing FeedForwardNN...")
@@ -278,15 +284,115 @@ def main_feed_forward_nn():
     train_labels = train_labels.astype(int)
     test_labels = test_labels.astype(int)
 
-    print(train_images)
-    print(train_labels)
-
-    network.train(train_images, train_labels, epochs=epochs, batch_size=batch_size)
+    # Train the network
+    network.train(train_images, train_labels, X_test=test_images, y_test=test_labels, epochs=epochs, batch_size=batch_size)
 
     final_train_error = calculate_error_fraction_multiple_class(network, train_images, train_labels)
     final_test_error = calculate_error_fraction_multiple_class(network, test_images, test_labels)
-    print(f"Initial Training Error: {final_train_error:.4f}")
-    print(f"Initial Test Error: {final_test_error:.4f}")
+    print(f"Final Training Error: {final_train_error:.4f}")
+    print(f"Final Test Error: {final_test_error:.4f}")
+
+
+    # Evaluate final outputs and confusion matrices
+    print("\nGetting outputs and predictions...")
+    train_outputs, train_predictions, train_conf_matrix, train_accuracy = network.inference(train_images, train_labels)
+    test_outputs, test_predictions, test_conf_matrix, test_accuracy = network.inference(test_images, test_labels)
+
+    # Plot confusion matrices
+    class_labels = list(range(10))  # Digits 0-9
+    plot_confusion_matrix(train_conf_matrix, class_labels, title="Training Set Confusion Matrix")
+    plot_confusion_matrix(test_conf_matrix, class_labels, title="Test Set Confusion Matrix")
+
+
+    # Plot error fractions
+    plot_error_fraction(network)
+
+def main_autoencoder_nn():
+    # File paths (assumed to be in the 'data' folder)
+    train_image_file = 'data/MNISTnumImages5000_balanced.txt'
+    train_label_file = 'data/MNISTnumLabels5000_balanced.txt'
+
+    # Prepare balanced training and test datasets
+    training_data, test_data = prepare_data_for_multiclass(
+        image_file=train_image_file,
+        label_file=train_label_file,
+        train_samples_per_class=400,
+        test_samples_per_class=100
+    )
+
+    # Extract test labels
+    test_labels = test_data["labels"]
+
+    # Extract training and test data
+    train_images = training_data["images"]
+    test_images = test_data["images"]
+
+    # Normalize images
+    train_images = train_images / 255.0
+    test_images = test_images / 255.0
+
+    # Initialize autoencoder
+    input_size = 784  
+    hidden_size = 100  
+    learning_rate = 0.001
+    momentum = 0.9
+    epochs = 200
+    batch_size = 64
+
+    print("\nInitializing AutoencoderNN...")
+    autoencoder = AutoencoderNN(input_size, hidden_size, learning_rate, momentum)
+
+    # Calculate initial reconstruction loss
+    print("\nEvaluating before training...")
+    initial_train_loss = autoencoder.reconstruction_loss(autoencoder.forward(train_images), train_images)
+    print(f"Initial Training Loss: {initial_train_loss:.4f}")
+
+    # CONTINUE HERE
+    # Train the autoencoder
+    print("\nTraining AutoencoderNN...")
+    history_train, history_test = autoencoder.train(
+        X_train=train_images,
+        y_train=train_images,
+        X_test=test_images,
+        y_test=test_images,
+        epochs=epochs,
+        batch_size=batch_size
+    )
+
+    # Save reconstructed images for visualization
+    print("\nReconstructing and visualizing images...")
+    reconstructed_train_images = autoencoder.forward(train_images)
+    reconstructed_test_images = autoencoder.forward(test_images)
+
+    # Calculate final reconstruction loss
+    final_train_loss = autoencoder.reconstruction_loss(autoencoder.forward(train_images), train_images)
+    print(f"Final Training Loss: {final_train_loss:.4f}")
+
+    # Evaluate MRE on the test set
+    print("\nEvaluating AutoencoderNN on test set...")
+    test_loss = autoencoder.reconstruction_loss(autoencoder.forward(test_images), test_images)
+    print(f"Test Set Reconstruction Loss (MRE): {test_loss:.4f}")
+
+    # Plot MRE over epochs
+    plot_error_fraction_encoders(
+        error_history_train=history_train,
+        error_history_test=history_test,
+        title="MRE Over Epochs",
+        xlabel="Epochs",
+        ylabel="MRE"
+    )
+
+    # Calculate per-digit MRE and standard deviation
+    autoencoder.calculate_per_digit_stats(test_images, test_labels)
+
+    # Perform inference on the test set
+    test_outputs, test_errors, test_mre = autoencoder.inference(test_images)
+
+    # Plot inference results
+    plot_inference(test_images, test_outputs, 30)
+
+    # Visualize hidden weights
+    #autoencoder.visualize_hidden_weights()
 
 
 if __name__ == "__main__":
@@ -297,4 +403,7 @@ if __name__ == "__main__":
     #main_second_problem()
 
     # Run the main function for the feed-forward neural network
-    main_feed_forward_nn()
+    #main_feed_forward_nn()
+    
+    # Run the main autoencoder
+    main_autoencoder_nn()
