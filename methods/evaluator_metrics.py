@@ -182,21 +182,113 @@ def plot_confusion_matrix(conf_matrix, class_labels, title="Confusion Matrix"):
     plt.title(title)
     plt.show()
 
+def plot_hidden_layer_features(autoencoder, feedforward_nn, num_neurons=20):
+    """
+    Plot the feature images of hidden neurons from the autoencoder and feed-forward network.
 
-def plot_inference(images_input, images_output, sample_idx=10):
-    '''
-    Plot the original and reconstructed images for a sample.
-    '''
-    
-    # Plot original and reconstructed images for a sample
-    plt.figure(figsize=(8, 4))
-    plt.subplot(1, 2, 1)
-    plt.title("Original Image")
-    plt.imshow(images_input[sample_idx].reshape(28, 28), cmap="gray")
+    Parameters:
+    autoencoder (AutoencoderNN): Trained autoencoder.
+    feedforward_nn (FeedForwardNN): Trained feed-forward network.
+    num_neurons (int): Number of neurons to select and visualize.
+    """
+    # Randomly select neurons
+    autoencoder_neurons = np.random.choice(autoencoder.hidden_size, num_neurons, replace=False)
+    feedforward_neurons = np.random.choice(feedforward_nn.layer_sizes[1], num_neurons, replace=False)
 
-    plt.subplot(1, 2, 2)
-    plt.title("Reconstructed Image")
-    plt.imshow(images_output[sample_idx].reshape(28, 28), cmap="gray")
+    # Extract and normalize weights for the selected neurons
+    autoencoder_features = autoencoder.weights_input_hidden[:, autoencoder_neurons].T
+    feedforward_features = feedforward_nn.weights[0][:, feedforward_neurons].T
+
+    autoencoder_features = (autoencoder_features - autoencoder_features.min(axis=1, keepdims=True)) / (
+        autoencoder_features.max(axis=1, keepdims=True) - autoencoder_features.min(axis=1, keepdims=True)
+    )
+    feedforward_features = (feedforward_features - feedforward_features.min(axis=1, keepdims=True)) / (
+        feedforward_features.max(axis=1, keepdims=True) - feedforward_features.min(axis=1, keepdims=True)
+    )
+
+    # Reshape features into 28x28 images
+    autoencoder_images = autoencoder_features.reshape(-1, 28, 28)
+    feedforward_images = feedforward_features.reshape(-1, 28, 28)
+
+    # Create a single figure for both feature sets
+    fig, axes = plt.subplots(4, 10, figsize=(15, 6))
+    fig.suptitle("Autoencoder vs Feed-Forward Network Features", fontsize=16)
+
+    for i in range(4):
+        for j in range(5):
+            # Plot autoencoder features (left 5 columns)
+            ax = axes[i, j]
+            ax.imshow(autoencoder_images[i * 5 + j], cmap='gray')
+            ax.axis('off')
+            if i == 0:
+                ax.set_title(f"A{i * 5 + j+1}", fontsize=10)
+
+            # Plot feedforward features (right 5 columns)
+            ax = axes[i, j + 5]
+            ax.imshow(feedforward_images[i * 5 + j], cmap='gray')
+            ax.axis('off')
+            if i == 0:
+                ax.set_title(f"F{i * 5 + j+1}", fontsize=10)
+
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.85)
+    plt.show()
+
+def plot_mre_comparison(train_mre, test_mre):
+    """
+    Plot the Mean Reconstruction Error (MRE) for the training and test sets as a bar chart.
+
+    Parameters:
+    train_mre (float): MRE for the training set.
+    test_mre (float): MRE for the test set.
+    """
+    labels = ['Training Set', 'Test Set']
+    mre_values = [train_mre, test_mre]
+
+    plt.figure(figsize=(6, 4))
+    plt.bar(labels, mre_values, color=['blue', 'orange'], alpha=0.7)
+    plt.ylabel('Mean Reconstruction Error (MRE)')
+    plt.title('MRE Comparison Between Training and Test Sets')
+    plt.ylim(0, max(mre_values) * 1.2)  # Add some space above the tallest bar for better visualization
+
+    # Annotate the bars with MRE values
+    for i, v in enumerate(mre_values):
+        plt.text(i, v + 0.01, f"{v:.4f}", ha='center', fontsize=12, color='black')
+
+    plt.tight_layout()
+    plt.show()
+
+def plot_inference(images_input, images_output, num_samples=8):
+    """
+    Plot the original and reconstructed images side by side for multiple samples.
+
+    Parameters:
+    images_input (ndarray): Original input images.
+    images_output (ndarray): Reconstructed images from the network.
+    num_samples (int): Number of samples to display (default: 8).
+    """
+    # Randomly select indices
+    sample_indices = np.random.choice(images_input.shape[0], num_samples, replace=False)
+
+    # Create a figure for 2 rows: original (top) and reconstructed (bottom)
+    fig, axes = plt.subplots(2, num_samples, figsize=(15, 5))
+
+    for i, idx in enumerate(sample_indices):
+        # Plot original image
+        axes[0, i].imshow(images_input[idx].reshape(28, 28), cmap="gray")
+        axes[0, i].axis("off")
+        axes[0, i].set_title(f"Original {idx}")
+
+        # Plot reconstructed image
+        axes[1, i].imshow(images_output[idx].reshape(28, 28), cmap="gray")
+        axes[1, i].axis("off")
+        axes[1, i].set_title(f"Reconstructed {idx}")
+
+    # Set row labels
+    axes[0, 0].set_ylabel("Original", fontsize=12)
+    axes[1, 0].set_ylabel("Reconstructed", fontsize=12)
+
+    plt.tight_layout()
     plt.show()
 
 

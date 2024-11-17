@@ -20,7 +20,9 @@ from methods.evaluator_metrics import (
     plot_error_fraction,
     plot_confusion_matrix,
     plot_error_fraction_encoders,
-    plot_inference
+    plot_inference,
+    plot_mre_comparison,
+    plot_hidden_layer_features
 )
 
 
@@ -320,7 +322,9 @@ def main_autoencoder_nn():
         test_samples_per_class=100
     )
 
+
     # Extract test labels
+    train_labels = training_data["labels"]
     test_labels = test_data["labels"]
 
     # Extract training and test data
@@ -332,6 +336,7 @@ def main_autoencoder_nn():
     test_images = test_images / 255.0
 
     # Initialize autoencoder
+    layer_sizes = [784, 100, 10]   
     input_size = 784  
     hidden_size = 100  
     learning_rate = 0.001
@@ -359,19 +364,14 @@ def main_autoencoder_nn():
         batch_size=batch_size
     )
 
-    # Save reconstructed images for visualization
-    print("\nReconstructing and visualizing images...")
-    reconstructed_train_images = autoencoder.forward(train_images)
-    reconstructed_test_images = autoencoder.forward(test_images)
-
     # Calculate final reconstruction loss
     final_train_loss = autoencoder.reconstruction_loss(autoencoder.forward(train_images), train_images)
     print(f"Final Training Loss: {final_train_loss:.4f}")
 
     # Evaluate MRE on the test set
     print("\nEvaluating AutoencoderNN on test set...")
-    test_loss = autoencoder.reconstruction_loss(autoencoder.forward(test_images), test_images)
-    print(f"Test Set Reconstruction Loss (MRE): {test_loss:.4f}")
+    final_test_loss = autoencoder.reconstruction_loss(autoencoder.forward(test_images), test_images)
+    print(f"Test Set Reconstruction Loss (MRE): {final_test_loss:.4f}")
 
     # Plot MRE over epochs
     plot_error_fraction_encoders(
@@ -389,10 +389,17 @@ def main_autoencoder_nn():
     test_outputs, test_errors, test_mre = autoencoder.inference(test_images)
 
     # Plot inference results
-    plot_inference(test_images, test_outputs, 30)
+    plot_inference(test_images, test_outputs, num_samples=8)
 
-    # Visualize hidden weights
-    #autoencoder.visualize_hidden_weights()
+    # Plot MRE comparison
+    plot_mre_comparison(final_train_loss, final_test_loss)
+
+    # Train a feed-forward neural network on the latent features
+    network = FeedForwardNN(layer_sizes, learning_rate, momentum)
+    network.train(train_images, train_labels.astype(int), X_test=test_images, y_test=test_labels.astype(int), epochs=epochs, batch_size=batch_size)
+
+    # Plot features
+    plot_hidden_layer_features(autoencoder, network, num_neurons=20)
 
 
 if __name__ == "__main__":
