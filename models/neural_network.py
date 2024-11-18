@@ -27,6 +27,15 @@ class NeuralNetwork:
             self.weights[f'W{l}'] = np.random.randn(self.layer_dimensions[l], self.layer_dimensions[l - 1]) * 0.01
             self.weights[f'b{l}'] = np.zeros((self.layer_dimensions[l], 1))
 
+            # Initializate weights using He initialization
+            '''
+            self.weights[f'W{l}'] = (
+                np.random.randn(self.layer_dimensions[l], self.layer_dimensions[l - 1]) 
+                * np.sqrt(2 / self.layer_dimensions[l - 1])
+            )
+            self.weights[f'b{l}'] = np.zeros((self.layer_dimensions[l], 1))
+            '''
+
         # Initialize velocity for momentum optimization
         self.velocity = {
             f'dW{l + 1}': np.zeros_like(self.weights[f'W{l + 1}'])
