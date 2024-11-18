@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd 
 import seaborn as sns
+from sklearn.metrics import confusion_matrix
 
 def calculate_error_fraction(model, images, labels):
     incorrect_predictions = 0
@@ -165,24 +166,73 @@ def calculate_metrics(model, images, labels):
 
     return precision, recall, f1_score
 
-
-def plot_confusion_matrix(conf_matrix, class_labels, title="Confusion Matrix"):
+def plot_confusion_matrix(y_true, y_pred, class_labels, title="Confusion Matrix"):
     """
-    Visualize the confusion matrix using seaborn.
+    Plot a raw confusion matrix (counts) for multi-class classification.
 
     Parameters:
-    conf_matrix (ndarray): Confusion matrix (10x10 for digit classification).
-    class_labels (list): List of class labels (e.g., [0, 1, 2, ..., 9]).
-    title (str): Title of the plot.
+    y_true (ndarray): Ground truth labels (class indices or one-hot encoded).
+    y_pred (ndarray): Predicted labels (class indices or probabilities).
+    class_labels (list): List of class labels (e.g., [0, 1, ..., 9]).
+    title (str): Title for the confusion matrix plot.
     """
-    plt.figure(figsize=(8, 6))
-    sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=class_labels, yticklabels=class_labels)
+    # Convert one-hot encoded labels to class indices if necessary
+    if len(y_true.shape) > 1:
+        y_true = np.argmax(y_true, axis=1)
+    if len(y_pred.shape) > 1:
+        y_pred = np.argmax(y_pred, axis=1)
+
+    # Compute the confusion matrix
+    conf_matrix = confusion_matrix(y_true, y_pred)
+
+    # Plot the confusion matrix
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues',
+                xticklabels=class_labels, yticklabels=class_labels)
     plt.xlabel("Predicted Label")
     plt.ylabel("True Label")
     plt.title(title)
     plt.show()
 
-def plot_hidden_layer_features(autoencoder, feedforward_nn, num_neurons=20):
+
+def visualize_hidden_neurons(weights, num_neurons, img_dim=(28, 28), normalize=True):
+    """
+    Visualize the features learned by hidden neurons.
+
+    Parameters:
+    weights (ndarray): The weights of the hidden layer with shape (num_neurons, 784).
+    num_neurons (int): Number of hidden neurons to visualize.
+    img_dim (tuple): Dimensions of the reshaped image (default is 28x28 for MNIST).
+    normalize (bool): Whether to normalize weights to the range [0, 255].
+
+    Returns:
+    None
+    """
+    # Normalize weights to [0, 1] or [0, 255] for visualization
+    if normalize:
+        weights = (weights - np.min(weights)) / (np.max(weights) - np.min(weights))
+        weights = (weights * 255).astype(np.uint8)
+
+    # Select the number of neurons to visualize
+    selected_neurons = weights[:num_neurons]
+
+    # Create a figure for visualization
+    fig, axes = plt.subplots(1, num_neurons, figsize=(num_neurons * 2, 2))
+    fig.suptitle("Visualizations of Hidden Neuron Features", fontsize=16)
+
+    for i, ax in enumerate(axes):
+        # Reshape weights into a 28x28 image
+        neuron_image = selected_neurons[i].reshape(img_dim)
+
+        # Plot the image
+        ax.imshow(neuron_image, cmap="gray")
+        ax.axis("off")
+        ax.set_title(f"Neuron {i + 1}")
+
+    plt.tight_layout()
+    plt.show()
+
+def plot_hidden_layer_features(classifier_weights, autoencoder_weights, num_neurons=20):
     """
     Plot the feature images of hidden neurons from the autoencoder and feed-forward network.
 
@@ -191,74 +241,70 @@ def plot_hidden_layer_features(autoencoder, feedforward_nn, num_neurons=20):
     feedforward_nn (FeedForwardNN): Trained feed-forward network.
     num_neurons (int): Number of neurons to select and visualize.
     """
-    # Randomly select neurons
-    autoencoder_neurons = np.random.choice(autoencoder.hidden_size, num_neurons, replace=False)
-    feedforward_neurons = np.random.choice(feedforward_nn.layer_sizes[1], num_neurons, replace=False)
+    # Randomly select neurons to visualize
+    idx = np.random.choice(classifier_weights.shape[0], num_neurons, replace=False)
+    c_weights = classifier_weights[idx, :]
+    a_weights = autoencoder_weights[idx, :]
 
-    # Extract and normalize weights for the selected neurons
-    autoencoder_features = autoencoder.weights_input_hidden[:, autoencoder_neurons].T
-    feedforward_features = feedforward_nn.weights[0][:, feedforward_neurons].T
+    # Normalize weights for visualization
+    c_weights_normalized = (c_weights - np.min(c_weights, axis=1, keepdims=True)) / np.ptp(c_weights, axis=1, keepdims=True)
+    a_weights_normalized = (a_weights - np.min(a_weights, axis=1, keepdims=True)) / np.ptp(a_weights, axis=1, keepdims=True)
 
-    autoencoder_features = (autoencoder_features - autoencoder_features.min(axis=1, keepdims=True)) / (
-        autoencoder_features.max(axis=1, keepdims=True) - autoencoder_features.min(axis=1, keepdims=True)
-    )
-    feedforward_features = (feedforward_features - feedforward_features.min(axis=1, keepdims=True)) / (
-        feedforward_features.max(axis=1, keepdims=True) - feedforward_features.min(axis=1, keepdims=True)
-    )
-
-    # Reshape features into 28x28 images
-    autoencoder_images = autoencoder_features.reshape(-1, 28, 28)
-    feedforward_images = feedforward_features.reshape(-1, 28, 28)
+    # Reshape weights into 28x28 images
+    c_images = c_weights_normalized.reshape(-1, 28, 28)
+    a_images = a_weights_normalized.reshape(-1, 28, 28)
 
     # Create a single figure for both feature sets
     fig, axes = plt.subplots(4, 10, figsize=(15, 6))
-    fig.suptitle("Autoencoder vs Feed-Forward Network Features", fontsize=16)
+    fig.suptitle("Classifier vs Autoencoder Features", fontsize=16)
 
     for i in range(4):
         for j in range(5):
-            # Plot autoencoder features (left 5 columns)
+            # Plot classifier features (left 5 columns)
             ax = axes[i, j]
-            ax.imshow(autoencoder_images[i * 5 + j], cmap='gray')
+            ax.imshow(c_images[i * 5 + j], cmap='gray')
             ax.axis('off')
             if i == 0:
-                ax.set_title(f"A{i * 5 + j+1}", fontsize=10)
+                ax.set_title(f"C{i * 5 + j + 1}", fontsize=10)
 
-            # Plot feedforward features (right 5 columns)
+            # Plot autoencoder features (right 5 columns)
             ax = axes[i, j + 5]
-            ax.imshow(feedforward_images[i * 5 + j], cmap='gray')
+            ax.imshow(a_images[i * 5 + j], cmap='gray')
             ax.axis('off')
             if i == 0:
-                ax.set_title(f"F{i * 5 + j+1}", fontsize=10)
+                ax.set_title(f"A{i * 5 + j + 1}", fontsize=10)
 
     plt.tight_layout()
     plt.subplots_adjust(top=0.85)
     plt.show()
 
-def plot_mre_comparison(train_mre, test_mre):
+def plot_mre_comparison(autoencoder, X_train, X_test):
     """
-    Plot the Mean Reconstruction Error (MRE) for the training and test sets as a bar chart.
-
-    Parameters:
-    train_mre (float): MRE for the training set.
-    test_mre (float): MRE for the test set.
+    Calculate and plot the Mean Reconstruction Error (MRE) of the final network
+    for the training and test sets.
     """
-    labels = ['Training Set', 'Test Set']
-    mre_values = [train_mre, test_mre]
 
-    plt.figure(figsize=(6, 4))
-    plt.bar(labels, mre_values, color=['blue', 'orange'], alpha=0.7)
-    plt.ylabel('Mean Reconstruction Error (MRE)')
-    plt.title('MRE Comparison Between Training and Test Sets')
-    plt.ylim(0, max(mre_values) * 1.2)  # Add some space above the tallest bar for better visualization
+    # Predict reconstructed outputs
+    y_preds_train = autoencoder.predict(X_train)
+    y_preds_test = autoencoder.predict(X_test)
 
-    # Annotate the bars with MRE values
-    for i, v in enumerate(mre_values):
-        plt.text(i, v + 0.01, f"{v:.4f}", ha='center', fontsize=12, color='black')
+    # Calculate Mean Reconstruction Error (MRE)
+    mre_train = np.mean(np.sum((X_train - y_preds_train) ** 2, axis=1))
+    mre_test = np.mean(np.sum((X_test - y_preds_test) ** 2, axis=1))
 
-    plt.tight_layout()
+    # Store the results
+    mre_results = {"Training Set MRE": mre_train, "Test Set MRE": mre_test}
+
+    # Plot the MREs as side-by-side bars
+    plt.figure(figsize=(8, 6))
+    plt.bar(mre_results.keys(), mre_results.values(), color=['blue', 'orange'])
+    plt.ylabel("Mean Reconstruction Error (MRE)")
+    plt.title("MRE of the Final Network on Training and Test Sets")
     plt.show()
 
-def plot_inference(images_input, images_output, num_samples=8):
+    return mre_results
+
+def plot_inference(model, X_test, num_samples=8):
     """
     Plot the original and reconstructed images side by side for multiple samples.
 
@@ -268,29 +314,25 @@ def plot_inference(images_input, images_output, num_samples=8):
     num_samples (int): Number of samples to display (default: 8).
     """
     # Randomly select indices
-    sample_indices = np.random.choice(images_input.shape[0], num_samples, replace=False)
+    random_indices = np.random.randint(X_test.shape[0], size=num_samples)
+    sample_X = X_test[random_indices, :]
+    sample_pred = model.predict(sample_X)
 
-    # Create a figure for 2 rows: original (top) and reconstructed (bottom)
-    fig, axes = plt.subplots(2, num_samples, figsize=(15, 5))
+    # Create a figure for the plots
+    fig, ax = plt.subplots(2, num_samples, figsize=(num_samples * 2, 4))
+    fig.suptitle("Original (Top) and Reconstructed (Bottom) Images")
 
-    for i, idx in enumerate(sample_indices):
+    for i in range(num_samples):
         # Plot original image
-        axes[0, i].imshow(images_input[idx].reshape(28, 28), cmap="gray")
-        axes[0, i].axis("off")
-        axes[0, i].set_title(f"Original {idx}")
+        ax[0][i].imshow(sample_X[i].reshape(28, 28), cmap='gray')
+        ax[0][i].axis('off')
 
         # Plot reconstructed image
-        axes[1, i].imshow(images_output[idx].reshape(28, 28), cmap="gray")
-        axes[1, i].axis("off")
-        axes[1, i].set_title(f"Reconstructed {idx}")
-
-    # Set row labels
-    axes[0, 0].set_ylabel("Original", fontsize=12)
-    axes[1, 0].set_ylabel("Reconstructed", fontsize=12)
+        ax[1][i].imshow(sample_pred[i].reshape(28, 28), cmap='gray')
+        ax[1][i].axis('off')
 
     plt.tight_layout()
     plt.show()
-
 
 def plot_error_fraction_encoders(error_history_train, error_history_test, title="Error Fraction Over Epochs", xlabel="Epochs", ylabel="Error Fraction"):
     """
@@ -317,22 +359,72 @@ def plot_error_fraction_encoders(error_history_train, error_history_test, title=
     plt.tight_layout()
     plt.show()
 
-def plot_error_fraction(network):
+def calculate_per_digit_stats(model, X_train, X_test):
     """
-    Plot the time series of error fractions for training and test sets from the network.
+    Compute training and testing costs per digit and display test set statistics (MRE ± σ).
+    """
+    train_preds = model.predict(X_train)
+    test_preds = model.predict(X_test)
+    train_cost = {}
+    test_cost = {}
+    test_stats = []
+
+    # Compute training costs per digit
+    for digit, start_index in enumerate(range(0, 4000, 400)):
+        train_cost[digit] = model.compute_cost(
+            train_preds[start_index:start_index + 400, ].T, 
+            X_train[start_index:start_index + 400, ].T
+        )
+
+    # Compute testing costs per digit
+    for digit, start_index in enumerate(range(0, 1000, 100)):
+        segment_test_preds = test_preds[start_index:start_index + 100, ].T
+        segment_X_test = X_test[start_index:start_index + 100, ].T
+
+        test_cost[digit] = model.compute_cost(segment_test_preds, segment_X_test)
+
+        # Calculate MRE and standard deviation for this digit
+        errors = np.mean((segment_X_test - segment_test_preds) ** 2, axis=0)
+        mean_error = np.mean(errors)
+        std_dev = np.std(errors)
+
+        test_stats.append({
+            "Digit": digit,
+            "MRE ± σ": f"{mean_error:.4f} ± {std_dev:.4f}",
+            "Mean Error": mean_error,
+            "Std Dev": std_dev
+        })
+
+    # Create a DataFrame for the test set statistics
+    test_stats_df = pd.DataFrame(test_stats)
+
+    # Print the test statistics table
+    print("\nTest Set Reconstruction Errors (MRE ± σ):")
+    print(test_stats_df[["Digit", "MRE ± σ"]].to_string(index=False))
+
+    return train_cost, test_cost, test_stats_df
+
+def plot_error_fraction(train_errors, test_errors, interval=10, title="Error Fraction Over Training Period"):
+    """
+    Plot the time series of error fractions for training and test sets.
 
     Parameters:
-    network (FeedForwardNN): The trained FeedForwardNN instance with recorded errors.
+    train_errors (list): List of training error fractions.
+    test_errors (list): List of test error fractions.
+    interval (int): Interval at which errors were recorded (default: 10 epochs).
+    title (str): Title of the plot.
     """
-    epochs = len(network.error_history_train)
-    x_ticks = list(range(0, epochs * 10, 10))  # Assuming error history is recorded every 10 epochs
+    # Number of recorded epochs
+    epochs = len(train_errors)
+    x_ticks = list(range(0, epochs * interval, interval))  # Generate epoch ticks based on the interval
 
     plt.figure(figsize=(10, 6))
-    plt.plot(x_ticks, network.error_history_train, label="Training Error Fraction", marker='o')
-    plt.plot(x_ticks, network.error_history_test, label="Test Error Fraction", marker='o')
+    plt.plot(x_ticks, train_errors, label="Training Error Fraction", marker='o', linestyle='-')
+    plt.plot(x_ticks, test_errors, label="Test Error Fraction", marker='s', linestyle='--')
+    
     plt.xlabel("Epoch")
     plt.ylabel("Error Fraction")
-    plt.title("Error Fraction Over Training Period")
+    plt.title(title)
     plt.legend()
     plt.grid(True)
     plt.show()

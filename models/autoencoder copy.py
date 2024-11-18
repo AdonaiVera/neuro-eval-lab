@@ -154,38 +154,7 @@ class AutoencoderNN:
             plt.show()
 
 
-    def calculate_per_digit_stats(self, X_test, y_test):
-        """
-        Calculate MRE and standard deviation for each digit.
-        """
-        unique_digits = np.unique(y_test)
-        stats = {}
 
-        for digit in unique_digits:
-            digit_indices = np.where(y_test == digit)[0]
-            X_digit = X_test[digit_indices]
-
-            # Calculate MRE and standard deviation
-            errors = np.sum((self.forward(X_digit) - X_digit) ** 2, axis=1)
-            mre = np.mean(errors)
-            std_dev = np.std(errors)
-            stats[int(digit)] = {'mre': mre, 'std_dev': std_dev}
-
-        # Overall MRE
-        overall_errors = np.sum((self.forward(X_test) - X_test) ** 2, axis=1)
-        stats['overall'] = {
-            'mre': np.mean(overall_errors),
-            'std_dev': np.std(overall_errors)
-        }
-
-        print("\nPer-Digit MRE and Standard Deviation:")
-        for digit, values in stats.items():
-            if digit == 'overall':
-                print(f"Overall - MRE: {values['mre']:.4f}, Std Dev: {values['std_dev']:.4f}")
-            else:
-                print(f"Digit {digit} - MRE: {values['mre']:.4f}, Std Dev: {values['std_dev']:.4f}")
-
-        return stats
     
     @staticmethod
     def relu(Z):
