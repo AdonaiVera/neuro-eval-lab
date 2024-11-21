@@ -6,7 +6,7 @@ class NeuralNetwork:
     """
     Implementation of a dense neural network for classification tasks.
     """
-    def __init__(self, input_size=784, hidden_size=100, num_hidden_layers=1, output_size=10, learning_rate=0.01, batch_size=32, num_epochs=100, beta=0.9, autoencoder=True):
+    def __init__(self, input_size=784, hidden_size=100, num_hidden_layers=1, output_size=10, learning_rate=0.01, batch_size=32, num_epochs=100, beta=0.9, autoencoder=True, frozen_layers=None):
         """
         Initialize network architecture, weights, and velocity for optimization.
         """
@@ -20,6 +20,7 @@ class NeuralNetwork:
         self.num_epochs = num_epochs
         self.beta = beta
         self.autoencoder = autoencoder
+        self.frozen_layers = frozen_layers if frozen_layers else []
 
         # Initialize weights
         self.weights = {}
@@ -160,14 +161,15 @@ class NeuralNetwork:
 
     def update_weights(self, weights, gradients, velocity, learning_rate):
         """
-        Update weights and biases using momentum optimization.
+        Update weights and biases using momentum optimization, skipping frozen layers.
         """
         num_layers = len(weights) // 2
         for l in range(num_layers):
-            velocity[f'dW{l + 1}'] = self.beta * velocity[f'dW{l + 1}'] + (1 - self.beta) * gradients[f'dW{l + 1}']
-            velocity[f'db{l + 1}'] = self.beta * velocity[f'db{l + 1}'] + (1 - self.beta) * gradients[f'db{l + 1}']
-            weights[f'W{l + 1}'] -= learning_rate * velocity[f'dW{l + 1}']
-            weights[f'b{l + 1}'] -= learning_rate * velocity[f'db{l + 1}']
+            if l + 1 not in self.frozen_layers:
+                velocity[f'dW{l + 1}'] = self.beta * velocity[f'dW{l + 1}'] + (1 - self.beta) * gradients[f'dW{l + 1}']
+                velocity[f'db{l + 1}'] = self.beta * velocity[f'db{l + 1}'] + (1 - self.beta) * gradients[f'db{l + 1}']
+                weights[f'W{l + 1}'] -= learning_rate * velocity[f'dW{l + 1}']
+                weights[f'b{l + 1}'] -= learning_rate * velocity[f'db{l + 1}']
 
         return weights, velocity
 

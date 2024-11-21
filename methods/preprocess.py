@@ -54,6 +54,64 @@ def preprocess_mnist_data():
     print("Preprocessing completed. Data saved in the 'data' folder.")
 
 
+def prepare_data_for_multiclass_digits(feature_file, label_file, digits=None, test_only=False):
+    """
+    Load, preprocess, and split data for multi-class classification, with optional digit filtering.
+
+    Parameters:
+    feature_file (str): Path to the features file (tab-separated).
+    label_file (str): Path to the labels file.
+    digits (list): List of digits to filter (default is None, meaning no filtering).
+    test_only (bool): Whether to return only test data (default is False).
+
+    Returns:
+    tuple: A tuple containing:
+        - X_train (ndarray): Features of the training data.
+        - y_train (ndarray): One-hot encoded labels of the training data.
+        - X_test (ndarray): Features of the testing data.
+        - y_test (ndarray): One-hot encoded labels of the testing data.
+    """
+    # Load features and labels
+    features = pd.read_csv(feature_file, sep="\t", header=None)
+    labels = pd.read_csv(label_file, header=None)
+    features['label'] = labels
+
+    if digits is not None:
+        features = features[features['label'].isin(digits)]
+
+    # Initialize train and test dataframes
+    train_df = pd.DataFrame()
+    test_df = pd.DataFrame()
+
+    # Split data by label
+    unique_labels = features['label'].unique()
+    for label in unique_labels:
+        df = features.loc[features['label'] == label]
+        train_split = df.sample(frac=0.8, random_state=200)  # 80% training data
+        test_split = df.drop(train_split.index)  # Remaining 20% for testing
+        train_df = pd.concat([train_df, train_split])
+        test_df = pd.concat([test_df, test_split])
+
+    # Extract features and labels for training
+    if not test_only:
+        y_train = train_df['label'].values.reshape(-1, 1)
+        X_train = train_df.drop(columns=['label']).values
+        mlb = MultiLabelBinarizer()
+        y_train = mlb.fit_transform(y_train)
+    else:
+        X_train, y_train = None, None
+
+    # Extract features and labels for testing
+    y_test = test_df['label'].values.reshape(-1, 1)
+    X_test = test_df.drop(columns=['label']).values
+    mlb = MultiLabelBinarizer()
+    y_test = mlb.fit_transform(y_test)
+
+    if test_only:
+        return X_test, y_test
+    else:
+        return X_train, y_train, X_test, y_test
+
 
 def prepare_data_for_multiclass(feature_file, label_file):
     """

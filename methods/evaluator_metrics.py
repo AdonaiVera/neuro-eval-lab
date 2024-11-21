@@ -3,6 +3,17 @@ import matplotlib.pyplot as plt
 import pandas as pd 
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
+import random
+
+def plot_reconstruction_errors(digits, mre, std):
+    plt.errorbar(digits, mre, yerr=std, fmt='o', capsize=5, label="Reconstruction Error")
+    plt.xlabel("Digit")
+    plt.ylabel("Mean Reconstruction Error (MRE)")
+    plt.title("Reconstruction Errors for Digits 0-4 and 5-9")
+    plt.xticks(digits)
+    plt.grid(True)
+    plt.legend()
+    plt.show()
 
 def calculate_error_fraction(model, images, labels):
     incorrect_predictions = 0
@@ -304,6 +315,47 @@ def plot_mre_comparison(autoencoder, X_train, X_test):
 
     return mre_results
 
+def plot_reconstructed_images(autoencoder, X_test, y_test, digits, samples_per_digit=5):
+    """
+    For each digit, randomly select samples from the test set, get the reconstructed images,
+    and plot the original and reconstructed images in two rows.
+
+    Parameters:
+    autoencoder (NeuralNetwork): The trained autoencoder model.
+    X_test (ndarray): Test feature set.
+    y_test (ndarray): Test labels (one-hot encoded).
+    digits (list): List of digits to visualize (e.g., [5, 6, 7, 8, 9]).
+    samples_per_digit (int): Number of samples to visualize per digit.
+    """
+    for digit in digits:
+        # Get indices of samples for the current digit
+        digit_indices = np.where(np.argmax(y_test, axis=1) == digit - 5)[0]
+        
+        # Randomly select `samples_per_digit` samples
+        selected_indices = random.sample(list(digit_indices), samples_per_digit)
+        selected_images = X_test[selected_indices]
+
+        # Get reconstructed images
+        reconstructed_images = autoencoder.predict(selected_images)
+
+        # Plot original and reconstructed images
+        fig, axes = plt.subplots(2, samples_per_digit, figsize=(10, 4))
+        fig.suptitle(f"Original and Reconstructed Images for Digit {digit}", fontsize=14)
+
+        for i, (original, reconstructed) in enumerate(zip(selected_images, reconstructed_images)):
+            # Original images (top row)
+            axes[0, i].imshow(original.reshape(28, 28), cmap='gray')
+            axes[0, i].axis('off')
+            axes[0, i].set_title(f"Original")
+
+            # Reconstructed images (bottom row)
+            axes[1, i].imshow(reconstructed.reshape(28, 28), cmap='gray')
+            axes[1, i].axis('off')
+            axes[1, i].set_title(f"Reconstructed")
+
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        plt.show()
+        
 def plot_inference(model, X_test, num_samples=8):
     """
     Plot the original and reconstructed images side by side for multiple samples.

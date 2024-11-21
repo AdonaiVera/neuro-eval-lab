@@ -1,7 +1,7 @@
 import numpy as np
 from models.perceptron import Perceptron
 from models.neural_network import NeuralNetwork
-from methods.preprocess import prepare_data_for_perceptrons, prepare_data_for_multiclass
+from methods.preprocess import prepare_data_for_perceptrons, prepare_data_for_multiclass, prepare_data_for_multiclass_digits
 from methods.evaluator_metrics import (
     calculate_error_fraction,
     calculate_metrics,
@@ -23,7 +23,9 @@ from methods.evaluator_metrics import (
     plot_mre_comparison,
     plot_hidden_layer_features,
     calculate_per_digit_stats,
-    visualize_hidden_neurons
+    visualize_hidden_neurons,
+    plot_reconstruction_errors,
+    plot_reconstructed_images
 )
 
 
@@ -326,6 +328,158 @@ def main_autoencoder_nn():
     # Visualize the features for the first 10 hidden neurons
     visualize_hidden_neurons(weights_autoencoder["W1"], num_neurons=2)
 
+def main_transfer_learning():
+    # File paths (assumed to be in the 'data' folder)
+    train_image_file = 'data/MNISTnumImages5000_balanced.txt'
+    train_label_file = 'data/MNISTnumLabels5000_balanced.txt'
+
+    # Prepare balanced training and test datasets
+    X_train, y_train, X_test, y_test = prepare_data_for_multiclass(train_image_file, train_label_file)
+
+    # Initialize hyperparameters (from HW 4)
+    input_size = 784
+    hidden_size = 200
+    num_hidden_layers = 1
+    output_size = 784
+    learning_rate = 0.01
+    epochs = 200
+    batch_size = 32
+    beta = 0.9
+
+    # Step 1: Train the autoencoder (if not already trained)
+    print("Training Autoencoder...")
+    autoencoder = NeuralNetwork(input_size, hidden_size, num_hidden_layers, input_size, learning_rate, batch_size, epochs, beta, autoencoder=True)
+    weights_autoencoder, _, _ = autoencoder.train(X_train, X_train, X_test, X_test)
+
+    # Save the input-to-hidden weights for transfer learning
+    pre_trained_weights = weights_autoencoder["W1"]
+
+    # Step 2: Case I - Freeze input-to-hidden weights and train hidden-to-output weights
+    print("Starting Case I: Train hidden-to-output weights only...")
+    output_size = 10
+
+    model_case1 = NeuralNetwork(input_size, hidden_size, num_hidden_layers, output_size, learning_rate, batch_size, epochs, beta, frozen_layers=[1])
+    # Set pre-trained weights for input-to-hidden
+    model_case1.weights["W1"] = pre_trained_weights  
+
+    # Train only the output layer
+    _, errors_train_case_1, errors_test_case_1 = model_case1.train(X_train, y_train, X_test, y_test) 
+
+    # Plot error
+    plot_error_fraction(errors_train_case_1, errors_test_case_1)
+
+    # Prediction train and test    
+    y_preds_train = model_case1.predict(X_train)
+    y_preds_test = model_case1.predict(X_test)
+
+    # List of class labels (e.g., for digit classification)
+    class_labels = list(range(10))
+
+    # Plot confusion matrices for training and test sets
+    plot_confusion_matrix(y_true=y_train, y_pred=y_preds_train, class_labels=class_labels, title="Training Set Confusion Matrix")
+    plot_confusion_matrix(y_true=y_test, y_pred=y_preds_test, class_labels=class_labels, title="Test Set Confusion Matrix")
+
+
+    # Step 3: Case II - Train both input-to-hidden and hidden-to-output weights
+    print("Starting Case II: Train all layers...")
+    model_case2 = NeuralNetwork(input_size, hidden_size, num_hidden_layers, output_size, learning_rate, batch_size, epochs, beta)
+    
+    # Set pre-trained weights for input-to-hidden
+    model_case2.weights["W1"] = pre_trained_weights  
+
+    # Train both layers
+    _, errors_train_case_2, errors_test_case_2 = model_case2.train(X_train, y_train, X_test, y_test)  
+
+    # Plot error
+    plot_error_fraction(errors_train_case_2, errors_test_case_2)
+
+    # Prediction train and test    
+    y_preds_train = model_case2.predict(X_train)
+    y_preds_test = model_case2.predict(X_test)
+
+    # List of class labels (e.g., for digit classification)
+    class_labels = list(range(10))
+
+    # Plot confusion matrices for training and test sets
+    plot_confusion_matrix(y_true=y_train, y_pred=y_preds_train, class_labels=class_labels, title="Training Set Confusion Matrix")
+    plot_confusion_matrix(y_true=y_test, y_pred=y_preds_test, class_labels=class_labels, title="Test Set Confusion Matrix")
+
+    print("Transfer learning completed successfully.")
+
+def main_transfer_learning_different_datasets():
+    # File paths (assumed to be in the 'data' folder)
+    train_image_file = 'data/MNISTnumImages5000_balanced.txt'
+    train_label_file = 'data/MNISTnumLabels5000_balanced.txt'
+
+    # Prepare datasets for digits 0-4 and 5-9
+    X_train_0_to_4, y_train_0_to_4, X_test_0_to_4, y_test_0_to_4 = prepare_data_for_multiclass_digits(
+        train_image_file, train_label_file, digits=[0, 1, 2, 3, 4]
+    )
+
+    print(y_train_0_to_4)
+    X_test_5_to_9, y_test_5_to_9 = prepare_data_for_multiclass_digits(
+        train_image_file, train_label_file, digits=[5, 6, 7, 8, 9], test_only=True
+    )
+
+    # Initialize hyperparameters
+    input_size = 784
+    hidden_size = 200
+    num_hidden_layers = 1
+    output_size = 784
+    learning_rate = 0.01
+    epochs = 200
+    batch_size = 32
+    beta = 0.9
+
+    # Train the autoencoder on digits 0-4
+    print("Training autoencoder on digits 0-4...")
+    autoencoder = NeuralNetwork(input_size, hidden_size, num_hidden_layers, output_size, learning_rate, batch_size, epochs, beta, autoencoder=True)
+    weights_autoencoder, _, _ = autoencoder.train(X_train_0_to_4, X_train_0_to_4, X_test_0_to_4, X_test_0_to_4)
+
+    # Calculate reconstruction error for digits 0-4
+    print("\nCalculating reconstruction errors for digits 0-4...")
+    mre_0_to_4 = []
+    std_0_to_4 = []
+    for digit in range(5):
+        X_test_digit = X_test_0_to_4[np.argmax(y_test_0_to_4, axis=1) == digit]
+        reconstructed = autoencoder.predict(X_test_digit)
+        error = np.mean((X_test_digit - reconstructed) ** 2, axis=1)
+        mre_0_to_4.append(np.mean(error))
+        std_0_to_4.append(np.std(error))
+        print(f"Digit {digit}: MRE = {mre_0_to_4[-1]:.6f}, Std Dev = {std_0_to_4[-1]:.6f}")
+
+    # Calculate reconstruction error for digits 5-9
+    print("\nCalculating reconstruction errors for digits 5-9...")
+    mre_5_to_9 = []
+    std_5_to_9 = []
+    for digit in range(5, 10):
+        X_test_digit = X_test_5_to_9[np.argmax(y_test_5_to_9, axis=1) == digit - 5]
+        reconstructed = autoencoder.predict(X_test_digit)
+        error = np.mean((X_test_digit - reconstructed) ** 2, axis=1)
+        mre_5_to_9.append(np.mean(error))
+        std_5_to_9.append(np.std(error))
+        print(f"Digit {digit}: MRE = {mre_5_to_9[-1]:.6f}, Std Dev = {std_5_to_9[-1]:.6f}")
+
+    # Combine results for digits 0-4 and 5-9
+    digits = list(range(10))
+    mre_all = mre_0_to_4 + mre_5_to_9
+    std_all = std_0_to_4 + std_5_to_9
+
+    # Display results in tabular format
+    print("\nSummary of Reconstruction Errors:")
+    print("Digit\tMRE\t\tStd Dev")
+    for digit, mre, std in zip(digits, mre_all, std_all):
+        print(f"{digit}\t{mre:.6f}\t{std:.6f}")
+
+    # Plot results
+    plot_reconstruction_errors(digits, mre_all, std_all)
+
+    # Visualize original and reconstructed images for digits 0-4
+    print("\nVisualizing original and reconstructed images for digits 5-9...")
+    plot_reconstructed_images(autoencoder, X_test_5_to_9, y_test_5_to_9, digits=[5, 6, 7, 8, 9])
+
+    print("\nTask completed: Transfer learning across datasets.")
+
 
 if __name__ == "__main__":
     # Run the main function for the first problem
@@ -338,4 +492,10 @@ if __name__ == "__main__":
     #main_feed_forward_nn()
     
     # Run the main autoencoder
-    main_autoencoder_nn()
+    #main_autoencoder_nn()
+
+    # Run the main transfer learning differents tasks
+    #main_transfer_learning()
+
+    # Run the main transfer learning differents datasrt
+    main_transfer_learning_different_datasets()
