@@ -315,6 +315,47 @@ def plot_mre_comparison(autoencoder, X_train, X_test):
 
     return mre_results
 
+def plot_mean_errors_with_values(mean_train_errors, mean_test_errors, overall_train_error, overall_test_error, title):
+    # Include digits 0-9 plus an "Overall" category
+    digits = list(range(10)) + ["Overall"]
+    mean_train_errors_with_overall = list(mean_train_errors) + [overall_train_error]
+    mean_test_errors_with_overall = list(mean_test_errors) + [overall_test_error]
+    
+    bar_width = 0.4
+    index = np.arange(len(digits))
+
+    # Create the bar plots with distinct, visually appealing colors
+    bars_train = plt.bar(index - bar_width/2, mean_train_errors_with_overall, bar_width, label='Training Errors', color='#1f77b4', alpha=0.8)
+    bars_test = plt.bar(index + bar_width/2, mean_test_errors_with_overall, bar_width, label='Test Errors', color='#ff7f0e', alpha=0.8)
+
+    # Add labels, title, and legend
+    plt.xlabel('Digit', fontsize=12)
+    plt.ylabel('Mean Error', fontsize=12)
+    plt.title(title, fontsize=14, weight='bold')
+    plt.xticks(index, digits, fontsize=10)
+    plt.yticks(fontsize=10)
+    plt.legend(loc='upper right', fontsize=10)
+
+    # Add gridlines for better readability
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+
+    # Highlight the "Overall" category
+    plt.axvline(x=len(digits) - 1.5, color='gray', linestyle='--', alpha=0.5)
+
+    # Display values on top of each bar
+    for bar in bars_train:
+        yval = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width() / 2, yval + 0.005, f"{yval:.2f}", ha='center', va='bottom', fontsize=9, color='black')
+    for bar in bars_test:
+        yval = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width() / 2, yval + 0.005, f"{yval:.2f}", ha='center', va='bottom', fontsize=9, color='black')
+
+    # Adjust layout for better spacing
+    plt.tight_layout()
+
+    # Show the plot
+    plt.show()
+    
 def plot_reconstructed_images(autoencoder, X_test, y_test, digits, samples_per_digit=5):
     """
     For each digit, randomly select samples from the test set, get the reconstructed images,

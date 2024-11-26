@@ -25,8 +25,10 @@ from methods.evaluator_metrics import (
     calculate_per_digit_stats,
     visualize_hidden_neurons,
     plot_reconstruction_errors,
-    plot_reconstructed_images
+    plot_reconstructed_images,
+    plot_mean_errors_with_values
 )
+import matplotlib.pyplot as plt
 
 
 def main_first_problem():
@@ -406,6 +408,61 @@ def main_transfer_learning():
 
     print("Transfer learning completed successfully.")
 
+    # TEMPORAL
+
+    # Prediction train and test    
+    y_preds_train_case1 = model_case1.predict(X_train)
+    y_preds_test_case1 = model_case1.predict(X_test)
+
+    # Prediction train and test    
+    y_preds_train_case2 = model_case2.predict(X_train)
+    y_preds_test_case2 = model_case2.predict(X_test)
+
+    # Function to calculate mean errors per digit
+    def calculate_mean_errors_per_digit(y_true, y_pred):
+        errors = []
+        for digit in range(10):
+            indices = np.where(np.argmax(y_true, axis=1) == digit)
+            digit_error = np.mean(np.argmax(y_true[indices], axis=1) != np.argmax(y_pred[indices], axis=1))
+            errors.append(digit_error)
+        return errors
+
+    # Calculate mean errors for Case I
+    mean_train_errors_case1 = calculate_mean_errors_per_digit(y_train, y_preds_train_case1)
+    mean_test_errors_case1 = calculate_mean_errors_per_digit(y_test, y_preds_test_case1)
+
+    # Calculate mean errors for Case II
+    mean_train_errors_case2 = calculate_mean_errors_per_digit(y_train, y_preds_train_case2)
+    mean_test_errors_case2 = calculate_mean_errors_per_digit(y_test, y_preds_test_case2)
+
+    # Overall mean errors
+    overall_train_error_case1 = np.mean(mean_train_errors_case1)
+    overall_test_error_case1 = np.mean(mean_test_errors_case1)
+
+    overall_train_error_case2 = np.mean(mean_train_errors_case2)
+    overall_test_error_case2 = np.mean(mean_test_errors_case2)
+
+    # Plotting function
+    print("Plotting mean errors for Case I...")
+    plot_mean_errors_with_values(
+        mean_train_errors_case1,
+        mean_test_errors_case1,
+        overall_train_error_case1,
+        overall_test_error_case1,
+        "Mean Errors Per Digit for Case I"
+    )
+
+    print("Plotting mean errors for Case II...")
+    plot_mean_errors_with_values(
+        mean_train_errors_case2,
+        mean_test_errors_case2,
+        overall_train_error_case2,
+        overall_test_error_case2,
+        "Mean Errors Per Digit for Case II"
+    )
+
+    print("Transfer learning completed successfully.")
+
 def main_transfer_learning_different_datasets():
     # File paths (assumed to be in the 'data' folder)
     train_image_file = 'data/MNISTnumImages5000_balanced.txt'
@@ -495,7 +552,7 @@ if __name__ == "__main__":
     #main_autoencoder_nn()
 
     # Run the main transfer learning differents tasks
-    #main_transfer_learning()
+    main_transfer_learning()
 
     # Run the main transfer learning differents datasrt
-    main_transfer_learning_different_datasets()
+    #main_transfer_learning_different_datasets()
